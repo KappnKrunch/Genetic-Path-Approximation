@@ -1,0 +1,7 @@
+goal  2,3,5,8;
+
+found 6,4,16,10;
+
+
+x = 0.5*(fsin(ref1*2*pi) + fsin(ref2*2*pi)) + 0.5;
+y = 0.5*(fsin(ref3*2*pi) + fsin(ref4*2*pi)) + 0.5;

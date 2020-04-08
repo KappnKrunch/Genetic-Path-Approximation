@@ -1,0 +1,14 @@
+{
+    "files.associations": {
+        "cmath": "cpp",
+        "vector": "cpp",
+        "iostream": "cpp",
+        "iosfwd": "cpp",
+        "ostream": "cpp",
+        "thread": "cpp",
+        "chrono": "cpp",
+        "cstdlib": "cpp",
+        "algorithm": "cpp",
+        "future": "cpp"
+    }
+}
