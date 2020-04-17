@@ -11,6 +11,8 @@
 
 using namespace std;
 
+vector<int> TRUE_GENES{2,8,3,5};
+
 inline double BoundRandom()
 {
     return 2.0*(double(rand())/RAND_MAX) - 1.0;
@@ -61,7 +63,7 @@ class GenePool
         
         for(int i(0); i < trueGenes.size(); ++i)
         {
-            cout << i << " " <<round(trueGenes[i].scale.x*10)/10<< " " <<round(trueGenes[i].scale.y*10)/10;
+            cout << i << " " <<round(trueGenes[i].scale.x*10.0)/10<< " " <<round(trueGenes[i].scale.y*10.0)/10;
             if(i < trueGenes.size()-1) cout << ",";
         }
         
@@ -124,7 +126,7 @@ class GenePool
             for(int j(0); j < genes[i].paramaters.size(); ++j)
             {
                 cout << i << " " 
-                << round(genes[i].paramaters[j].scale.x*10)/10 << " " << round(genes[i].paramaters[j].scale.y*10)/10;
+                << round(genes[i].paramaters[j].scale.x*10.0)/10 << " " << round(genes[i].paramaters[j].scale.y*10.0)/10;
 
                 if(j < genes[i].paramaters.size()-1) cout << ",";
             }
@@ -182,7 +184,7 @@ class GenePool
         {
             Gene newGene;
 
-            for(size_t j = 0; j < geneLength; ++j)
+            for(size_t j = 0; j <= geneLength; ++j)
             {
                 newGene.paramaters.push_back( RandomGenome() );
             }
@@ -242,12 +244,29 @@ class GenePool
         return closestPoint;
     }
 
-    vec2 Parametricfunction(const double& time, const GenomeSequence& geneRef)
+    vec2 Parametricfunction(const double& time, const vector<int>& geneRef)
     {
+        int halfSize = int(geneRef.size()*0.5);
 
-        vec2 sumScale;
-        sumScale.x = 0;
-        sumScale.y = 0;
+        vec2 fXY;
+
+        fXY.x = 0;
+        fXY.y = 0;
+        for(int i(0); i < halfSize; ++i)
+        {
+            fXY.x += (0.5*sin( time * 2.0 * 3.14159 *double(geneRef[i]) ) + 0.5);
+
+            fXY.y += (0.5*sin( time * 2.0 * 3.14159 *double(geneRef[i+halfSize]) ) + 0.5);
+        }
+
+        fXY.x /= halfSize;
+        fXY.y /= halfSize;
+
+        return fXY;
+    }
+
+    vec2 FourierPositional(const double& time, const GenomeSequence& geneRef)
+    {
 
         //copy of original method
         vec2 fXY;
@@ -257,14 +276,13 @@ class GenePool
         for(int i(0); i < geneRef.size(); ++i)
         {
             fXY.x += (0.5*sin( time * 2.0 * 3.14159 *double(i) ) + 0.5) * geneRef[i].scale.x;
+
             fXY.y += (0.5*cos( time * 2.0 * 3.14159 *double(i) ) + 0.5) * geneRef[i].scale.y;
 
-            sumScale.x += geneRef[i].scale.x;
-            sumScale.y += geneRef[i].scale.y;
         }
 
-        fXY.x /= sumScale.x;
-        fXY.y /= sumScale.y;
+        fXY.x = min(1.0,max(-1.0,fXY.x));
+        fXY.y = min(1.0,max(-1.0,fXY.y));
 
         return fXY;
     }
@@ -275,21 +293,16 @@ class GenePool
 
         for(int i(0); i < geneA.paramaters.size(); ++i)
         {
-            //int param = round(0.5*(geneA.paramaters[i].freq + geneB.paramaters[i].freq)); //50 50 split
 
             Genome newGenome;
 
-            //param = (param+round(31.0*BoundRandom()*mutationStrength))*pow(2.0,BoundRandom()*4); //mutation
-            //param = param+round(7.0*BoundRandom()*mutationStrength); //mutation
-            //param = min(8,max(-8,param));
-
-            //newGenome.freq = param;
-
             newGenome.scale.x = 0.5*(geneA.paramaters[i].scale.x + geneB.paramaters[i].scale.x);
-            newGenome.scale.x = (newGenome.scale.x + BoundRandom()*mutationStrength) * 0.5;
+            newGenome.scale.x = (newGenome.scale.x + BoundRandom()*mutationStrength);
+            newGenome.scale.x = min(1.0,max(-1.0,newGenome.scale.x));
 
             newGenome.scale.y = 0.5*(geneA.paramaters[i].scale.y + geneB.paramaters[i].scale.y);
-            newGenome.scale.y = (newGenome.scale.y + BoundRandom()*mutationStrength) * 0.5;
+            newGenome.scale.y = (newGenome.scale.y + BoundRandom()*mutationStrength);
+            newGenome.scale.y = min(1.0,max(-1.0,newGenome.scale.y));
 
             newGene.paramaters.push_back(newGenome);
         }
@@ -309,13 +322,13 @@ class GenePool
         for(double i(0); i < 1.0; i += deltaTime)
         {
             double minDist(1.0);
-            vec2 a = Parametricfunction(i,gene.paramaters);
+            vec2 a = FourierPositional(i,gene.paramaters);
             vec2 b;
 
             for(double j(deltaTime); j < 1.0; j += deltaTime)
             {
-                vec2 ba = Parametricfunction(j,trueGeneSequence);
-                vec2 bb = Parametricfunction(j-deltaTime,trueGeneSequence);
+                vec2 ba = Parametricfunction(j,TRUE_GENES);
+                vec2 bb = Parametricfunction(j-deltaTime,TRUE_GENES);
                 vec2 b = ClosestPointOnLineSegment(ba,bb,a);
 
                 double dist = sqrt((b.x-a.x)*(b.x-a.x) + (b.y-a.y)*(b.y-a.y));
@@ -451,32 +464,34 @@ class GenePool
                 Gene a = sample[rand() % maxSamples];
                 Gene b = sample[rand() % maxSamples];
 
-                newGeneration.push_back(MergeGenes(a,b,0.85));
+                newGeneration.push_back(MergeGenes(a,b,0.15));
             }
         }
-        int geneIndex(0);
+        int geneIndex(desiredTotal*carryOver);
         while(newGeneration.size() < desiredTotal)
         {
-            double guess = rand()/RAND_MAX;
+            double guess = (rand()/RAND_MAX);
             if(genes[geneIndex].weightedFitness >= guess)
             {
                 Gene b = sample[rand() % maxSamples];
 
-                newGeneration.push_back(MergeGenes(genes[geneIndex],b,0.75));
+                newGeneration.push_back(MergeGenes(genes[geneIndex],b,0.35));
                 //newGeneration.push_back(genes[geneIndex]);
             }
             else if(mergeVMutationRate >= guess)
             {
-                Gene newGene;
+                Gene randGene;
 
                 for(size_t j = 0; j < sample[0].paramaters.size(); ++j)
                 {
-                    newGene.paramaters.push_back( RandomGenome() );
+                    randGene.paramaters.push_back( RandomGenome() );
                 }
+
+                Gene newGene = MergeGenes(sample[rand() % maxSamples],randGene,0.75);
 
                 newGeneration.push_back(newGene);
             }
-            geneIndex = (geneIndex + 1)%newGeneration.size();
+            geneIndex = int(geneIndex + BoundRandom()*desiredTotal*carryOver)%newGeneration.size();
         }
 
         //cout << desiredTotal - min(maxSamples,int(desiredTotal*0.5)) << " new members" << endl;
@@ -514,16 +529,16 @@ class GenePool
                 xy.x = x;
                 xy.y = y;
 
-                vec2 ba = Parametricfunction(j,trueGeneSequence);
-                vec2 bb = Parametricfunction(j-deltaTime,trueGeneSequence);
+                vec2 ba = Parametricfunction(j,TRUE_GENES);
+                vec2 bb = Parametricfunction(j-deltaTime,TRUE_GENES);
                 vec2 b = ClosestPointOnLineSegment(ba,bb,xy);
 
                 double dist = sqrt((b.x-x)*(b.x-x) + (b.y-y)*(b.y-y));
 
                 if(dist < minDistTrue) minDistTrue = dist;
 
-                ba = Parametricfunction(j,bestGene.paramaters);
-                bb = Parametricfunction(j-deltaTime,bestGene.paramaters);
+                ba = FourierPositional(j,bestGene.paramaters);
+                bb = FourierPositional(j-deltaTime,bestGene.paramaters);
                 b = ClosestPointOnLineSegment(ba,bb,xy);
 
                 dist = sqrt((b.x-x)*(b.x-x) + (b.y-y)*(b.y-y));
@@ -574,19 +589,19 @@ int main()
     //vector<int> testSeq{2,8,3,5};
 
     
-    
-    vector<int> trueIntSeq{2,8,3,5};
+    //for now this does nothing
+    vector<int> trueIntSeq{5,8,13,3};
     GenomeSequence trueSeq = testPool.GenerateGenomeSequenceFromInts(trueIntSeq,8);
 
 
-    testPool.FindSolution(100,16,1000,trueSeq);
+    testPool.FindSolution(400,4,10000,trueSeq);
     testPool.PrintGenePool();
 
     if( testPool.currentBest.fitness >= 1.0)
     {
         cout << "found solution: ";
 
-        for(int i = 0; i < testPool.currentBest.paramaters.size();++i)
+        for(int i = 0; i < testPool.currentBest.paramaters.size(); ++i)
         {
             cout << i << " ";
         }
